@@ -25,10 +25,11 @@ func main() {
 	defer conn.Close()
 
 	//Creating a client from the proto buffer
-	client := pb.NewHealthCheckStatusServiceClient(conn)
+	healthClient := pb.NewHealthCheckStatusServiceClient(conn)
+	doUnaryCall(healthClient)
 
-	doUnaryCall(client)
-
+	calcClient := pb.NewCalculatorServiceClient(conn)
+	doUnaryCalc(calcClient)
 }
 
 //Unary API Call
@@ -39,11 +40,30 @@ func doUnaryCall(client pb.HealthCheckStatusServiceClient) {
 		AppName: "R3APPClient",
 	}
 
-	response, err := client.HealthCheckStatus(context.Background(), &rqst)
+	resp, err := client.HealthCheckStatus(context.Background(), &rqst)
 	if err != nil {
 		log.Fatalf("Error getting the health response ! %v", err)
 		panic(err)
 	}
 
-	log.Printf("Client is connected :: %v", response)
+	log.Printf("Client is connected :: %v", resp)
+}
+
+func doUnaryCalc(client pb.CalculatorServiceClient) {
+	log.Println("Performing a UNARY API Calculator Call...")
+
+	calc := pb.Calculator{
+		NumOne: 20,
+		NumTwo: 30,
+	}
+	rqst := pb.CalculatorRequest{
+		Payload: &calc,
+	}
+
+	resp, err := client.Calculator(context.Background(), &rqst)
+	if err != nil {
+		log.Fatalf("Error getting the calculator response ! %v", err)
+		panic(err)
+	}
+	log.Printf("Client is connected :: %v", resp)
 }
