@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	pb "github.com/r3rivera/r3app-protobuffer-repo/basic-test"
@@ -24,8 +25,25 @@ func main() {
 	defer conn.Close()
 
 	//Creating a client from the proto buffer
-	client := pb.NewGreeterServiceClient(conn)
+	client := pb.NewHealthCheckStatusServiceClient(conn)
 
-	log.Printf("Client is connected :: %f", client)
+	doUnaryCall(client)
 
+}
+
+//Unary API Call
+func doUnaryCall(client pb.HealthCheckStatusServiceClient) {
+	log.Println("Performing a UNARY API Call...")
+	//Creating a payload request
+	rqst := pb.HealthCheckStatusRequest{
+		AppName: "R3APPClient",
+	}
+
+	response, err := client.HealthCheckStatus(context.Background(), &rqst)
+	if err != nil {
+		log.Fatalf("Error getting the health response ! %v", err)
+		panic(err)
+	}
+
+	log.Printf("Client is connected :: %v", response)
 }
