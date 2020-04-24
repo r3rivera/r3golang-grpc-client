@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 
 	pb "github.com/r3rivera/r3app-protobuffer-repo/basic-test"
@@ -25,11 +26,15 @@ func main() {
 	defer conn.Close()
 
 	//Creating a client from the proto buffer
-	healthClient := pb.NewHealthCheckStatusServiceClient(conn)
-	doUnaryCall(healthClient)
+	//healthClient := pb.NewHealthCheckStatusServiceClient(conn)
+	//doUnaryCall(healthClient)
 
-	calcClient := pb.NewCalculatorServiceClient(conn)
-	doUnaryCalc(calcClient)
+	//calcClient := pb.NewCalculatorServiceClient(conn)
+	//doUnaryCalc(calcClient)
+
+	//Server-streaming client
+	notifyClient := pb.NewNotificationMessageServiceClient(conn)
+	doServerStream(notifyClient)
 }
 
 //Unary API Call
@@ -66,4 +71,34 @@ func doUnaryCalc(client pb.CalculatorServiceClient) {
 		panic(err)
 	}
 	log.Printf("Client is connected :: %v", resp)
+}
+
+func doServerStream(client pb.NotificationMessageServiceClient) {
+	log.Println("Performing a Server Stream API Call...")
+
+	rqst := pb.NotificationMessageRequest{
+		Requester: "Tester",
+	}
+	respStream, err := client.NotificationMessage(context.Background(), &rqst)
+	if err != nil {
+		log.Fatalf("Error sending the notification message stream ! %v", err)
+		panic(err)
+	}
+
+	for {
+		msg, err := respStream.Recv()
+
+		//Check if we still have message from stream
+		if err == io.EOF {
+			log.Println("Streaming message is complete. Exiting...")
+			break
+		}
+
+		if err != nil {
+			log.Fatalf("Error getting the notification message stream ! %v", err)
+			panic(err)
+		}
+		log.Println("Response is ", msg)
+	}
+
 }
