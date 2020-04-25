@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
+	"time"
+
+	mock "r3golang-grpc-client/readers"
 
 	pb "github.com/r3rivera/r3app-protobuffer-repo/basic-test"
-
-	"google.golang.org/grpc"
+	grpc "google.golang.org/grpc"
 )
 
 func main() {
@@ -33,8 +36,16 @@ func main() {
 	//doUnaryCalc(calcClient)
 
 	//Server-streaming client
-	notifyClient := pb.NewNotificationMessageServiceClient(conn)
-	doServerStream(notifyClient)
+	//notifyClient := pb.NewNotificationMessageServiceClient(conn)
+	//doServerStream(notifyClient)
+
+	//Client-Stream client
+	//dataUpload := pb.NewDataUploadMessageServiceClient(conn)
+	//doClientStream(dataUpload)
+
+	//Bi-Directional Stream
+	chatClient := pb.NewChatSupportMessageServiceClient(conn)
+	doBiDirectionalStream(chatClient)
 }
 
 //Unary API Call
@@ -101,4 +112,98 @@ func doServerStream(client pb.NotificationMessageServiceClient) {
 		log.Println("Response is ", msg)
 	}
 
+}
+
+func doClientStream(client pb.DataUploadMessageServiceClient) {
+	log.Println("Performing a Client Stream API Call...")
+	mock.StoreMockCSV(client)
+}
+
+func doBiDirectionalStream(client pb.ChatSupportMessageServiceClient) {
+	log.Println("Performing a Bi-Directional Stream API Call...")
+
+	bidiStream, err := client.ChatSupportMessage(context.Background())
+	if err != nil {
+		log.Fatalf("Error with the bi-direction streaming. Error is %v", err)
+		panic(err)
+	}
+
+	waitc := make(chan struct{})
+	//Send a bunch of messsage
+	go func() {
+
+		for _, chatRqst := range mockChatSender() {
+			log.Printf("Sending chat message of %v \n", chatRqst)
+			bidiStream.Send(chatRqst)
+			time.Sleep(3 * time.Second)
+		}
+
+		err := bidiStream.CloseSend()
+		if err != nil {
+			log.Println("Error with CloseSend() of Bi-directional stream. ", err)
+		}
+	}()
+
+	//Receive a response
+	go func() {
+
+		for {
+			res, err := bidiStream.Recv()
+			if err == io.EOF {
+				log.Println("Bi-direction stream is EOF!", err)
+				break
+			}
+			if err != nil {
+				log.Println("Error receiving bi-directional response. ", err)
+				break
+			}
+			fmt.Println("Got response of ", res)
+		}
+		close(waitc)
+
+	}()
+
+	//Block until everything is done
+	<-waitc
+
+}
+
+func mockChatSender() []*pb.ChatSupportMessageRequest {
+
+	chats := []*pb.ChatSupportMessageRequest{
+		{
+			ChatId: "123",
+			ChatMessage: &pb.ChatSupportMessage{
+				Sender:     "R2D2",
+				Receipient: "Admin",
+				Message:    "We need help",
+			},
+		},
+		{
+			ChatId: "456",
+			ChatMessage: &pb.ChatSupportMessage{
+				Sender:     "James",
+				Receipient: "Admin",
+				Message:    "Need some ticket",
+			},
+		},
+		{
+			ChatId: "789",
+			ChatMessage: &pb.ChatSupportMessage{
+				Sender:     "John",
+				Receipient: "Admin",
+				Message:    "Need IT help",
+			},
+		},
+		{
+			ChatId: "ABC",
+			ChatMessage: &pb.ChatSupportMessage{
+				Sender:     "John",
+				Receipient: "Admin",
+				Message:    "Need food",
+			},
+		},
+	}
+
+	return chats
 }
