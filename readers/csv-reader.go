@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	pb "github.com/r3rivera/r3app-protobuffer-repo/basic-test"
+	pb "github.com/r3rivera/r3app-protobuffer-repo/basicpb"
 )
 
 //StoreMockCSV Reads the mock data and send it to a channel

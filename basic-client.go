@@ -5,21 +5,45 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	mock "r3golang-grpc-client/readers"
 
-	pb "github.com/r3rivera/r3app-protobuffer-repo/basic-test"
+	pb "github.com/r3rivera/r3app-protobuffer-repo/basicpb"
+	pb2 "github.com/r3rivera/r3app-protobuffer-repo/messagepb"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
 
-	log.Println("GRPC Client application is running!")
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println("GRPC Client application is starting!")
+
+	port := fmt.Sprintf("%s:%s", os.Getenv("CLIENT_SERVER_HOST"), os.Getenv("CLIENT_SERVER_PORT"))
+	isTLS, _ := strconv.ParseBool(os.Getenv("SECURE_MODE"))
+
+	opts := []grpc.DialOption{}
+	if isTLS {
+		log.Println("Connecting to server in secure mode!")
+		credFile := os.Getenv("CLIENT_CERT_PATH")
+		creds, err := credentials.NewClientTLSFromFile(credFile, "")
+
+		if err != nil {
+			log.Fatal("Unable to load the certificate!", err)
+			panic(err)
+		}
+		//Append the credentials
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	}
+
+	conn, err := grpc.Dial(port, opts...)
 
 	//Creates a connection to the server (r3golang-grpc) with Insecure connection.
 	//By default, grpc uses secure connection but for this exercise, we explicitly specified unsecure connection
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	//conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 
 	if err != nil {
 		log.Fatalln("Error establishing a connection!", err)
@@ -44,8 +68,12 @@ func main() {
 	//doClientStream(dataUpload)
 
 	//Bi-Directional Stream
-	chatClient := pb.NewChatSupportMessageServiceClient(conn)
-	doBiDirectionalStream(chatClient)
+	//chatClient := pb.NewChatSupportMessageServiceClient(conn)
+	//doBiDirectionalStream(chatClient)
+
+	//Unary Message
+	msgClient := pb2.NewMessagePostServiceClient(conn)
+	doContactUs(msgClient)
 }
 
 //Unary API Call
@@ -206,4 +234,27 @@ func mockChatSender() []*pb.ChatSupportMessageRequest {
 	}
 
 	return chats
+}
+
+func doContactUs(client pb2.MessagePostServiceClient) {
+	log.Println("Invoking contact us GRPC...")
+
+	payload := pb2.MessagePost{
+		FirstName:   "Customer",
+		LastName:    "Interest",
+		Email:       "abc@test.com",
+		PhoneNumber: "+18007775555",
+		Message:     "What is going on here?",
+	}
+	rqst := pb2.MessagePostRequest{
+		Post: &payload,
+	}
+
+	resp, err := client.MessagePost(context.Background(), &rqst)
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println(resp)
 }
